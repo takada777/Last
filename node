@@ -97,7 +97,7 @@ const selectroom = io.of("/selectroom").on("connection", function(socket) {
 
   });
 });
-
+var msg_log = [];
 //お絵かき用
 const oekaki = io.of("/oekaki").on("connection", function(socket) {
   socket.on("connected", function(roomid) {
@@ -115,6 +115,7 @@ const oekaki = io.of("/oekaki").on("connection", function(socket) {
         wid: '500',
         hei: '700'
       });
+      msg_log.push({data: []});
     }
     connection.query('UPDATE room SET number_of_people = ? WHERE room_id = ?', [ninzu, roomid], function(err, rows, fields) {
       if (err) {
@@ -128,6 +129,8 @@ const oekaki = io.of("/oekaki").on("connection", function(socket) {
     console.log(j);
     socket.emit("publish", hairetu[j]);
     socket.emit("size", size[j]);
+    socket.emit("msg_log", msg_log[j]);
+
 
 
   });
@@ -161,10 +164,18 @@ const oekaki = io.of("/oekaki").on("connection", function(socket) {
     socket.broadcast.to(roomid).emit("text", data);
   });
 
-  socket.on("line", function(msg, roomid, username) {
+  socket.on("line", function(msg, roomid, username,time) {
     console.log(roomid);
-    socket.broadcast.to(roomid).emit("unko", msg, username);
-    console.log("kf");
+          var j = room.indexOf(roomid);
+
+          msg_log[j].data.push({
+              name: username,
+              msg: msg,
+              time: time
+          });
+          console.log(msg_log[j]);
+          socket.broadcast.to(roomid).emit("unko", msg, username);
+          console.log("kf");
   });
 
 
@@ -504,7 +515,7 @@ console.log('消えろや');
   });
 
   socket.on("classselect", function() {
-    connection.query('SELECT * from class', function(err, rows, fields) {
+    connection.query('SELECT * from class order by class_name', function(err, rows, fields) {
       if (err) {
         console.log('err: ' + err);
       }
@@ -585,19 +596,6 @@ const homework_select = io.of("/homework_select").on("connection", function(sock
         });
     });
 
-    socket.on("classselect", function() {
-        connection.query('SELECT * from class', function(err, rows, fields) {
-            if (err) {
-                console.log('err: ' + err);
-            }
-            for (var i = 0; i < rows.length; i++) {
-                //console.log(io.sockets.adapter.rooms[rows[i].roomid]);
-                //console.log(ninzu[i]);
-            }
-            socket.emit("classselect", rows);
-        });
-
-    });
 
     socket.on("student", function(classid) {
         connection.query('SELECT * from student WHERE student_class = ?', [classid], function(err, rows, fields) {
@@ -762,7 +760,7 @@ const question_select = io.of("/question_select").on("connection", function(sock
 });
 
 const question = io.of("/question").on("connection", function(socket) {
-  
+
     socket.on("question_select", function(id) {
           connection.query('select * from question_details left outer join question on question.question_id = question_details.question_id where question_details.question_id = ?', [id], function(err, rows, fields) {
               if (err) {
